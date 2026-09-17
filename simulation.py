@@ -57,15 +57,24 @@ class ShipControls:
 class Ship(Entity):
     def __init__(self, world: World):
         super().__init__(world)
+        self.ship_controls = ShipControls()
         self.length = 10.0
         self.width = 5.0
+        self.linear_acceleration = 7.0
+        self.angular_acceleration = 3.0
         self.velocity = Velocity()
         self.cannons: list[CannonGroup] = []
 
-    def step(self, dt: float) -> None:
-        self.transform.position += self.velocity.linear * dt
-        self.transform.angle += self.velocity.angular * dt
+    def apply_controls(self, dt: float) -> None:
+        forward = Vector2(1.0, 0.0).rotated(self.transform.angle)
+        self.velocity.linear += (
+            forward * self.ship_controls.throttle * self.linear_acceleration * dt
+        )
+        self.velocity.angular += (
+            self.ship_controls.steering * self.angular_acceleration * dt
+        )
 
+    def apply_drag(self, dt: float) -> None:
         angular_drag = 0.8
         sideways_drag = 0.8
         forward_drag = 0.99
@@ -76,6 +85,13 @@ class Ship(Entity):
         local_velocity.x *= math.exp(-forward_drag * dt)
         local_velocity.y *= math.exp(-sideways_drag * dt)
         self.velocity.linear = local_velocity.rotated(self.transform.angle)
+
+    def step(self, dt: float) -> None:
+        self.apply_controls(dt)
+        self.apply_drag(dt)
+
+        self.transform.position += self.velocity.linear * dt
+        self.transform.angle += self.velocity.angular * dt
 
 class FireMode(Enum):
     VOLLEY = auto()
