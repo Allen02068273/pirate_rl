@@ -79,6 +79,9 @@ class Ship(Entity):
         self.velocity = Velocity()
         self.cannons: list[CannonGroup] = []
 
+    def set_controls(self, controls: ShipControls):
+        self.ship_controls = controls
+
     def apply_controls(self, dt: float) -> None:
         forward = Vector2(1.0, 0.0).rotated(self.transform.angle)
         self.velocity.linear += (

@@ -1,3 +1,5 @@
+import pygame
+
 from pirate_rl.controls import *
 from pirate_rl.rendering import *
 from pirate_rl.simulation import *
@@ -13,13 +15,21 @@ BRIG = ShipConfig(
     angular_drag_rate=0.8,
 )
 
+
 def main() -> None:
     world = World()
     ship = Ship(world, BRIG)
+    world.spawn(ship)
     controller = KeyboardController()
     renderer = Renderer()
 
-    while True:
-        ship.ship_controls = controller.get_controls()
+    running = True
+
+    while running:
+        for event in pygame.event.get():
+            if event == pygame.QUIT:
+                running = False
+
+        ship.set_controls(controller.get_controls())
         world.step(1/60)
         renderer.render(world)
