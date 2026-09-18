@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import math
-from enum import Enum, auto
 from dataclasses import dataclass, field
+from enum import Enum, auto
+
+from .geometry import *
+
 
 class World:
     def __init__(self):
@@ -18,6 +21,9 @@ class World:
         self.to_remove.add(entity)
 
     def step(self, dt: float):
+        if dt <= 0:
+            raise ValueError("dt must be positive")
+        
         self.time += dt
 
         for entity in self.entities:
@@ -49,41 +55,45 @@ class Entity:
 
 @dataclass
 class ShipControls:
-    throttle: float = 0.0
-    steering: float = 0.0
+    throttle: float = 0.0  # [-1, 1]
+    steering: float = 0.0  # [-1, 1]
     fire_left: bool = False
     fire_right: bool = False
 
+@dataclass(frozen=True)
+class ShipConfig:
+    length: float
+    width: float
+    max_hull_health: float
+    linear_acceleration: float
+    angular_acceleration: float
+    forward_drag_rate: float
+    sideways_drag_rate: float
+    angular_drag_rate: float
+
 class Ship(Entity):
-    def __init__(self, world: World):
+    def __init__(self, world: World, ship_config: ShipConfig):
         super().__init__(world)
         self.ship_controls = ShipControls()
-        self.length = 10.0
-        self.width = 5.0
-        self.linear_acceleration = 7.0
-        self.angular_acceleration = 3.0
+        self.ship_config = ship_config
         self.velocity = Velocity()
         self.cannons: list[CannonGroup] = []
 
     def apply_controls(self, dt: float) -> None:
         forward = Vector2(1.0, 0.0).rotated(self.transform.angle)
         self.velocity.linear += (
-            forward * self.ship_controls.throttle * self.linear_acceleration * dt
+            forward * self.ship_controls.throttle * self.ship_config.linear_acceleration * dt
         )
         self.velocity.angular += (
-            self.ship_controls.steering * self.angular_acceleration * dt
+            self.ship_controls.steering * self.ship_config.angular_acceleration * dt
         )
 
     def apply_drag(self, dt: float) -> None:
-        angular_drag = 0.8
-        sideways_drag = 0.8
-        forward_drag = 0.99
-
-        self.velocity.angular *= math.exp(-angular_drag * dt)
+        self.velocity.angular *= math.exp(-self.ship_config.angular_drag_rate * dt)
 
         local_velocity = self.velocity.linear.rotated(-self.transform.angle)
-        local_velocity.x *= math.exp(-forward_drag * dt)
-        local_velocity.y *= math.exp(-sideways_drag * dt)
+        local_velocity.x *= math.exp(-self.ship_config.forward_drag_rate * dt)
+        local_velocity.y *= math.exp(-self.ship_config.sideways_drag_rate * dt)
         self.velocity.linear = local_velocity.rotated(self.transform.angle)
 
     def step(self, dt: float) -> None:
@@ -121,7 +131,12 @@ class CannonGroup:
         raise ValueError(f"Unknown fire mode: {self.mode}")
 
     def fire(self) -> None:
-        if self.is_ready():
+        if self.mode is FireMode.VOLLEY:
+            if all(cannon.is_ready() for cannon in self.cannons):
+                for cannon in self.cannons:
+                    cannon.fire()
+
+        elif self.mode is FireMode.FREE_FIRE:
             for cannon in self.cannons:
                 cannon.fire()
 
@@ -168,64 +183,3 @@ class Cannonball(Entity):
         self.transform.position += self.velocity * dt
         if self.world.time >= self.despawn_time:
             self.world.remove(self)
-
-@dataclass
-class Vector2:
-    x: float = 0.0
-    y: float = 0.0
-
-    def __add__(self, other: Vector2) -> Vector2:
-        return Vector2(self.x + other.x, self.y + other.y)
-
-    def __sub__(self, other: Vector2) -> Vector2:
-        return Vector2(self.x - other.x, self.y - other.y)
-
-    def __mul__(self, scalar: float) -> Vector2:
-        return Vector2(self.x * scalar, self.y * scalar)
-
-    def __rmul__(self, scalar: float) -> Vector2:
-        return self * scalar
-
-    def dot(self, other: Vector2) -> float:
-        return self.x * other.x + self.y * other.y
-
-    def cross(self, other: Vector2) -> float:
-        return self.x * other.y - self.y * other.x
-
-    def rotated(self, angle: float) -> Vector2:
-        cos_a = math.cos(angle)
-        sin_a = math.sin(angle)
-
-        return Vector2(
-            cos_a * self.x - sin_a * self.y,
-            sin_a * self.x + cos_a * self.y,
-        )
-
-@dataclass
-class Transform:
-    position: Vector2 = field(default_factory=Vector2)
-    angle: float = 0.0
-
-    def transform_point(self, local_point: Vector2) -> Vector2:
-        return self.position + local_point.rotated(self.angle)
-
-    def inverse_transform_point(self, world_point: Vector2) -> Vector2:
-        return (world_point - self.position).rotated(-self.angle)
-
-    def transform(self, local: Transform) -> Transform:
-        return Transform(
-            position=self.transform_point(local.position),
-            angle=self.angle + local.angle,
-        )
-
-@dataclass
-class Velocity:
-    linear: Vector2 = field(default_factory=Vector2)
-    angular: float = 0.0
-
-class Renderer:
-    def __init__(self):
-        pass
-
-    def render(self, world):
-        pass
