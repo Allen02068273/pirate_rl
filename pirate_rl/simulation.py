@@ -12,13 +12,13 @@ class World:
         self.time = 0.0
         self.entities: list[Entity] = []
         self.to_spawn: list[Entity] = []
-        self.to_remove: set[Entity] = set()
+        self.to_remove: list[Entity] = []
 
     def spawn(self, entity: Entity):
         self.to_spawn.append(entity)
 
     def remove(self, entity: Entity):
-        self.to_remove.add(entity)
+        self.to_remove.append(entity)
 
     def step(self, dt: float):
         if dt <= 0:
@@ -82,6 +82,9 @@ class Ship(Entity):
     def set_controls(self, controls: ShipControls):
         self.ship_controls = controls
 
+    def add_cannon_group(self, cannon_group: CannonGroup):
+        self.cannons.append(cannon_group)
+
     def apply_controls(self, dt: float) -> None:
         forward = Vector2(1.0, 0.0).rotated(self.transform.angle)
         self.velocity.linear += (
@@ -90,6 +93,10 @@ class Ship(Entity):
         self.velocity.angular += (
             self.ship_controls.steering * self.ship_config.angular_acceleration * dt
         )
+        if self.ship_controls.fire_left:
+            self.cannons[0].fire()
+        if self.ship_controls.fire_right:
+            self.cannons[1].fire()
 
     def apply_drag(self, dt: float) -> None:
         self.velocity.angular *= math.exp(-self.ship_config.angular_drag_rate * dt)
@@ -114,6 +121,10 @@ class CannonGroup:
     def __init__(self):
         self.cannons: list[Cannon] = []
         self.mode: FireMode = FireMode.VOLLEY
+
+    def add_cannons(self, transforms: list[Transform], ship):
+        for transform in transforms:
+            self.cannons.append(Cannon(transform, ship))
 
     def get_reload_progress(self) -> float:
         if not self.cannons:
@@ -163,8 +174,8 @@ class Cannon:
         self.reload_complete_time = self.ship.world.time + self.reload_time
 
         cannon_transform = self.ship.transform.transform(self.local_transform)
-        cb = Cannonball(cannon_transform, 0.5, 5.0, self.ship)
-        self.ship.world.spawn(cb)
+        cannonball = Cannonball(cannon_transform, 30.0, 1.5, self.ship)
+        self.ship.world.spawn(cannonball)
 
 class Cannonball(Entity):
     def __init__(
