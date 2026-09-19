@@ -7,6 +7,55 @@ from enum import Enum, auto
 from .geometry import *
 
 
+@dataclass(frozen=True)
+class ShipConfig:
+    length: float
+    width: float
+    max_hull_health: float
+    linear_acceleration: float
+    angular_acceleration: float
+    forward_drag_rate: float
+    sideways_drag_rate: float
+    angular_drag_rate: float
+    cannon_group_l: tuple[Transform, ...]
+    cannon_group_r: tuple[Transform, ...]
+
+BRIG_CONFIG = ShipConfig(
+    length=10.0,
+    width=5.0,
+    max_hull_health=100,
+    linear_acceleration=4.0,
+    angular_acceleration=1.0,
+    forward_drag_rate=0.4,
+    sideways_drag_rate=5.0,
+    angular_drag_rate=2.0,
+    cannon_group_l=(
+        Transform(Vector2(3.0, -2.0), -math.pi / 2),
+        Transform(Vector2(0.0, -2.0), -math.pi / 2),
+        Transform(Vector2(-3.0, -2.0), -math.pi / 2),
+    ),
+    cannon_group_r=(
+        Transform(Vector2(3.0, 2.0), math.pi / 2),
+        Transform(Vector2(0.0, 2.0), math.pi / 2),
+        Transform(Vector2(-3.0, 2.0), math.pi / 2),
+    ),
+)
+
+def spawn_ship(world: World, config: ShipConfig) -> Ship:
+    ship = Ship(world, config)
+    cannon_group_l = CannonGroup()
+    cannon_group_r = CannonGroup()
+
+    cannon_group_l.add_cannons(config.cannon_group_l, ship)
+    cannon_group_r.add_cannons(config.cannon_group_r, ship)
+
+    ship.add_cannon_group(cannon_group_l)
+    ship.add_cannon_group(cannon_group_r)
+
+    world.spawn(ship)
+
+    return ship
+
 class World:
     def __init__(self):
         self.time = 0.0
@@ -59,17 +108,6 @@ class ShipControls:
     steering: float = 0.0  # [-1, 1]
     fire_left: bool = False
     fire_right: bool = False
-
-@dataclass(frozen=True)
-class ShipConfig:
-    length: float
-    width: float
-    max_hull_health: float
-    linear_acceleration: float
-    angular_acceleration: float
-    forward_drag_rate: float
-    sideways_drag_rate: float
-    angular_drag_rate: float
 
 class Ship(Entity):
     def __init__(self, world: World, ship_config: ShipConfig):

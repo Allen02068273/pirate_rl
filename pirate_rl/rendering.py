@@ -1,6 +1,6 @@
 import pygame
 
-from .simulation import *
+from .simulation import Cannonball, Ship, Vector2, World
 
 
 class Renderer:
@@ -29,6 +29,7 @@ class Renderer:
         offset = Vector2(line_length / 2, 0.0).rotated(ship.transform.angle)
         side_offset = Vector2(0.0, line_width / 2).rotated(ship.transform.angle)
 
+        # these are temporary for debugging
         base *= 5
         offset *= 5
         side_offset *= 5
@@ -64,6 +65,7 @@ class Renderer:
     def draw_cannonball(self, cannonball: Cannonball):
         point = cannonball.transform.position
 
+        # this is temporary for debugging
         point *= 5
 
         pygame.draw.circle(

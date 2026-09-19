@@ -2,7 +2,7 @@ from typing import Protocol
 
 import pygame
 
-from .simulation import *
+from .simulation import ShipControls
 
 
 class ShipController(Protocol):
