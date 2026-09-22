@@ -1,15 +1,20 @@
 import pygame
 
 from pirate_rl.controls import KeyboardController
+from pirate_rl.geometry import Vector2
 from pirate_rl.rendering import Renderer
 from pirate_rl.simulation import BRIG_CONFIG, World, spawn_ship
 
 
 def main() -> None:
     world = World()
-    ship = spawn_ship(world, BRIG_CONFIG)
     controller = KeyboardController()
     renderer = Renderer()
+
+    ship = spawn_ship(world, BRIG_CONFIG)
+    ship_other = spawn_ship(world, BRIG_CONFIG)
+    ship.transform.position = Vector2(20, 15)
+    ship_other.transform.position = Vector2(40, 30)
 
     clock = pygame.time.Clock()
     running = True

@@ -61,6 +61,24 @@ class Renderer:
             (point_2.x, point_2.y),
             line_width/2,
         )
+        pygame.draw.circle(
+            self.window,
+            (150, 150, 150),
+            (point_1.x, point_1.y),
+            line_width/4,
+        )
+        pygame.draw.circle(
+            self.window,
+            (200, 50, 50),
+            (ship.collider.world_point_a.x*5, ship.collider.world_point_a.y*5),
+            ship.collider.radius*5,
+        )
+        pygame.draw.circle(
+            self.window,
+            (200, 50, 50),
+            (ship.collider.world_point_b.x*5, ship.collider.world_point_b.y*5),
+            ship.collider.radius*5,
+        )
 
     def draw_cannonball(self, cannonball: Cannonball):
         point = cannonball.transform.position

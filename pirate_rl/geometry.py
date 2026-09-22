@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
+from math import atan2, cos, sin, sqrt
 
 
 @dataclass
@@ -21,15 +21,30 @@ class Vector2:
     def __rmul__(self, scalar: float) -> Vector2:
         return self * scalar
 
+    def __truediv__(self, scalar: float) -> Vector2:
+        return Vector2(self.x / scalar, self.y / scalar)
+
+    def __rtruediv__(self, scalar: float) -> Vector2:
+        return Vector2(scalar / self.x, scalar / self.y)
+
     def dot(self, other: Vector2) -> float:
         return self.x * other.x + self.y * other.y
 
     def cross(self, other: Vector2) -> float:
         return self.x * other.y - self.y * other.x
 
+    def magnitude_squared(self) -> float:
+        return self.x * self.x + self.y * self.y
+
+    def norm(self) -> float:
+        return self / sqrt(self.magnitude_squared())
+
+    def angle(self) -> float:
+        return atan2(self.y, self.x)
+
     def rotated(self, angle: float) -> Vector2:
-        cos_a = math.cos(angle)
-        sin_a = math.sin(angle)
+        cos_a = cos(angle)
+        sin_a = sin(angle)
 
         return Vector2(
             cos_a * self.x - sin_a * self.y,
