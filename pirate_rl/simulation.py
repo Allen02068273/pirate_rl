@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from itertools import combinations
 
+from .collision import Capsule, Circle, CollisionSystem
 from .geometry import Transform, Vector2, Velocity
 
 
@@ -63,13 +66,13 @@ class World:
         self.to_spawn: list[Entity] = []
         self.to_remove: list[Entity] = []
 
-    def spawn(self, entity: Entity):
+    def spawn(self, entity: Entity) -> None:
         self.to_spawn.append(entity)
 
-    def remove(self, entity: Entity):
+    def remove(self, entity: Entity) -> None:
         self.to_remove.append(entity)
 
-    def step(self, dt: float):
+    def step(self, dt: float) -> None:
         if dt <= 0:
             raise ValueError("dt must be positive")
         
@@ -91,19 +94,20 @@ class World:
             self.entities.extend(self.to_spawn)
             self.to_spawn.clear()
 
-    def handle_collisions(self):
+    def handle_collisions(self) -> None:
         for entity in self.entities:
             entity.collider.sync_from_transform(entity.transform)
 
         ships, cannonballs = World.get_subtypes(self.entities)
 
-        for i, ship_a in enumerate(ships):
-            for ship_b in ships[i + 1:]:
-                CollisionSystem.capsule_capsule(ship_a.collider, ship_b.collider)
+        for ship_a, ship_b in combinations(ships, 2):
+            CollisionSystem.capsule_capsule(ship_a.collider, ship_b.collider)
+
+        for ship in ships:
             for cannonball in cannonballs:
                 if (
-                    not cannonball.origin is ship_a
-                    and CollisionSystem.circle_capsule(cannonball.collider, ship_a.collider)
+                    not cannonball.origin is ship
+                    and CollisionSystem.circle_capsule(cannonball.collider, ship.collider)
                 ):
                         self.remove(cannonball)
             
@@ -120,127 +124,6 @@ class World:
                 cannonballs.append(entity)
 
         return ships, cannonballs
-
-@dataclass
-class Circle:
-    radius: float
-    is_static: bool = False
-    world_point: Vector2 = field(default_factory=Vector2)
-
-    def sync_from_transform(self, transform: Transform) -> None:
-        self.world_point = Vector2(transform.position.x, transform.position.y)
-
-    def sync_to_transform(self, transform: Transform) -> None:
-        transform.position = Vector2(self.world_point.x, self.world_point.y)
-
-@dataclass
-class Capsule:
-    radius: float
-    half_length: float
-    is_static: bool = False
-    world_point_a: Vector2 = field(default_factory=Vector2)
-    world_point_b: Vector2 = field(default_factory=Vector2)
-
-    def a_as_circle(self):
-        return Circle(
-            radius=self.radius,
-            is_static=self.is_static,
-            world_point=self.world_point_a,
-        )
-
-    def b_as_circle(self):
-        return Circle(
-            radius=self.radius,
-            is_static=self.is_static,
-            world_point=self.world_point_b,
-        )
-
-    def sync_from_transform(self, transform: Transform) -> None:
-        self.world_point_a = transform.transform_point(Vector2(-self.half_length, 0.0))
-        self.world_point_b = transform.transform_point(Vector2(self.half_length, 0.0))
-
-    def sync_to_transform(self, transform: Transform) -> None:
-        transform.position = (self.world_point_a + self. world_point_b) / 2
-        transform.angle = (self.world_point_b - self.world_point_a).angle()
-
-class CollisionSystem:
-    @staticmethod
-    def entity_entity_collision(collider_a: Circle | Capsule, collider_b: Circle | Capsule) -> bool:
-        func = None
-        if isinstance(collider_a, Capsule) and isinstance(collider_b, Capsule):
-            func = CollisionSystem.capsule_capsule
-        elif isinstance(collider_a, Circle) and isinstance(collider_b, Circle):
-            func = CollisionSystem.circle_circle
-        elif isinstance(collider_a, Circle) and isinstance(collider_b, Capsule):
-            func = CollisionSystem.circle_capsule
-        elif isinstance(collider_a, Capsule) and isinstance(collider_b, Circle):
-            func = CollisionSystem.capsule_circle
-
-        if func:
-            return func(collider_a, collider_b)
-
-    @staticmethod
-    def circle_circle(circle_a: Circle, circle_b: Circle) -> bool:
-        distance_vector = circle_b.world_point - circle_a.world_point
-        radius = circle_a.radius + circle_b.radius
-        if distance_vector.magnitude_squared() >= radius * radius:
-            return False
-        
-        if distance_vector.magnitude_squared > 0.0:
-            penetration_vector = radius * distance_vector.norm() - distance_vector
-        else:
-            penetration_vector = radius * Vector2(1, 0)
-
-        if not (circle_a.is_static or circle_b.is_static):
-            circle_a.world_point -= penetration_vector / 2
-            circle_b.world_point += penetration_vector / 2
-        else:
-            if not circle_a.is_static:
-                circle_a.world_point -= penetration_vector
-            if not circle_b.is_static:
-                circle_b.world_point += penetration_vector
-        return True
-
-    @staticmethod
-    def circle_capsule(circle: Circle, capsule: Capsule) -> bool:
-        radius = circle.radius + capsule.radius
-        capsule_point_vector = (circle.world_point - capsule.world_point_a)
-        capsule_vector = (capsule.world_point_b - capsule.world_point_a)
-        t = min(1, max(0, capsule_point_vector.dot(capsule_vector) / capsule_vector.magnitude_squared()))
-        distance_vector = capsule_point_vector - t * capsule_vector
-
-        if distance_vector.magnitude_squared() >= radius * radius:
-            return False
-
-        if distance_vector.magnitude_squared() > 0.0:
-            penetration_vector = radius * distance_vector.norm() - distance_vector
-        else:
-            penetration_vector = radius * Vector2(1, 0)
-
-        if not (circle.is_static or capsule.is_static):
-            circle.world_point += penetration_vector / 2
-            capsule.world_point_b -= t * penetration_vector / 2
-            capsule.world_point_a -= (1 - t) * penetration_vector / 2
-        else:
-            if not circle.is_static:
-                circle.world_point += penetration_vector
-            if not capsule.is_static:
-                capsule.world_point_b -= t * penetration_vector
-                capsule.world_point_a -= (1 - t) * penetration_vector
-        return True
-
-    @staticmethod
-    def capsule_circle(capsule: Capsule, circle: Circle) -> bool:
-        return CollisionSystem.circle_capsule(circle, capsule)
-
-    @staticmethod
-    def capsule_capsule(capsule_a: Capsule, capsule_b: Capsule) -> bool:
-        return (
-               CollisionSystem.circle_capsule(capsule_a.a_as_circle(), capsule_b)
-            or CollisionSystem.circle_capsule(capsule_a.b_as_circle(), capsule_b)
-            or CollisionSystem.circle_capsule(capsule_b.a_as_circle(), capsule_a)
-            or CollisionSystem.circle_capsule(capsule_b.b_as_circle(), capsule_a)
-        )
 
 @dataclass
 class Entity:
@@ -269,10 +152,10 @@ class Ship(Entity):
         self.velocity = Velocity()
         self.cannons: list[CannonGroup] = []
 
-    def set_controls(self, controls: ShipControls):
+    def set_controls(self, controls: ShipControls) -> None:
         self.ship_controls = controls
 
-    def add_cannon_group(self, cannon_group: CannonGroup):
+    def add_cannon_group(self, cannon_group: CannonGroup) -> None:
         self.cannons.append(cannon_group)
 
     def apply_controls(self, dt: float) -> None:
@@ -312,7 +195,7 @@ class CannonGroup:
         self.cannons: list[Cannon] = []
         self.mode: FireMode = FireMode.VOLLEY
 
-    def add_cannons(self, transforms: list[Transform], ship):
+    def add_cannons(self, transforms: Iterable[Transform], ship) -> None:
         for transform in transforms:
             self.cannons.append(Cannon(transform, ship))
 
@@ -364,7 +247,7 @@ class Cannon:
         self.reload_complete_time = self.ship.world.time + self.reload_time
 
         cannon_transform = self.ship.transform.transform(self.local_transform)
-        cannonball = Cannonball(cannon_transform, 10.0, 1.0, self.ship)
+        cannonball = Cannonball(cannon_transform, 40.0, 1.0, self.ship)
         self.ship.world.spawn(cannonball)
 
 class Cannonball(Entity):
