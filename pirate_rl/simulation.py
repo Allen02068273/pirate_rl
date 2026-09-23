@@ -249,18 +249,21 @@ class CannonGroup:
         if self.mode is FireMode.VOLLEY:
             if all(cannon.is_ready() for cannon in self.cannons):
                 for cannon in self.cannons:
-                    cannon.fire()
+                    cannon.schedule_fire(0.1)
 
         elif self.mode is FireMode.FREE_FIRE:
             for cannon in self.cannons:
-                cannon.fire()
+                cannon.schedule_fire(0.1)
 
 class Cannon:
     def __init__(self, local_transform: Transform, ship: Ship):
         self.local_transform = local_transform
+        self.ship = ship
+
         self.reload_complete_time = 0.0
         self.reload_time = 1.0
-        self.ship = ship
+
+        self.fire_scheduled = False
 
     def get_reload_progress(self) -> float:
         remaining = self.reload_complete_time - self.ship.world.time
@@ -269,14 +272,30 @@ class Cannon:
     def is_ready(self) -> bool:
         return self.ship.world.time >= self.reload_complete_time
 
+    def schedule_fire(self, delay) -> None:
+        if not self.is_ready() or self.fire_scheduled:
+            return
+        self.ship.world.schedule(
+            time=self.ship.world.time + delay,
+            callback=self.fire,
+        )
+        self.fire_scheduled = True
+
     def fire(self) -> None:
         if not self.is_ready():
             return
-        self.reload_complete_time = self.ship.world.time + self.reload_time
 
         cannon_transform = self.ship.transform.transform(self.local_transform)
-        cannonball = Cannonball(cannon_transform, 40.0, 1.0, self.ship)
+        cannonball = Cannonball(
+            transform=cannon_transform,
+            speed=40.0,
+            lifetime=1.0,
+            origin=self.ship,
+        )
         self.ship.world.spawn(cannonball)
+        
+        self.reload_complete_time = self.ship.world.time + self.reload_time
+        self.fire_scheduled = False
 
 class Cannonball(Entity):
     def __init__(
