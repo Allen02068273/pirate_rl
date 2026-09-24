@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import heapq
 import math
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from itertools import combinations
 
 from .collision import Capsule, Circle, CollisionSystem
+from .events import EventQueue
 from .geometry import Transform, Vector2, Velocity
 
 
@@ -131,27 +131,6 @@ class World:
                 cannonballs.append(entity)
 
         return ships, cannonballs
-
-class EventQueue:
-    def __init__(self):
-        self.events: list[ScheduledEvent] = []
-        self.sequence = 0  # maintains FIFO order for simultaneous events
-
-    def schedule(self, time: float, callback: Callable) -> None:
-        event = ScheduledEvent(time=time, sequence=self.sequence, callback=callback)
-        heapq.heappush(self.events, event)
-        self.sequence += 1
-
-    def pop_ready(self, current_time: float):
-        while self.events and current_time >= self.events[0].time:
-            event = heapq.heappop(self.events)
-            event.callback()
-
-@dataclass(order=True)
-class ScheduledEvent:
-    time: float
-    sequence: int  # maintains FIFO order for simultaneous events
-    callback: Callable = field(compare=False)
 
 @dataclass
 class Entity:
