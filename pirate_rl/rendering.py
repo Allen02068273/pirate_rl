@@ -1,7 +1,7 @@
 import pygame
 
 from .geometry import Transform
-from .simulation import Cannonball, Entity, Ship, Vector2, World
+from .simulation import Cannonball, Entity, Island, Ship, Vector2, World
 
 
 class Camera:
@@ -58,6 +58,8 @@ class Renderer:
                 self.draw_ship(entity, camera)
             elif type(entity) is Cannonball:
                 self.draw_cannonball(entity, camera)
+            elif type(entity) is Island:
+                self.draw_island(entity, camera)
 
         pygame.display.update()
 
@@ -111,6 +113,17 @@ class Renderer:
         pygame.draw.circle(
             self.window,
             (50, 50, 50),
+            (point.x, point.y),
+            radius,
+        )
+
+    def draw_island(self, island: Island, camera: Camera) -> None:
+        point = camera.world_to_screen(island.transform).position
+        radius = 20 * camera.scale
+
+        pygame.draw.circle(
+            self.window,
+            (200, 140, 90),
             (point.x, point.y),
             radius,
         )

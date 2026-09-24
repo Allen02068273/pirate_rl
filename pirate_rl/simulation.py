@@ -105,7 +105,7 @@ class World:
         for entity in self.entities:
             entity.collider.sync_from_transform(entity.transform)
 
-        ships, cannonballs = World.get_subtypes(self.entities)
+        ships, cannonballs, islands = World.get_subtypes(self.entities)
 
         for ship_a, ship_b in combinations(ships, 2):
             CollisionSystem.capsule_capsule(ship_a.collider, ship_b.collider)
@@ -116,21 +116,27 @@ class World:
                     not cannonball.origin is ship
                     and CollisionSystem.circle_capsule(cannonball.collider, ship.collider)
                 ):
-                        self.remove(cannonball)
+                    self.remove(cannonball)
+
+        for ship in ships:
+            for island in islands:
+                CollisionSystem.circle_capsule(island.collider, ship.collider)
             
         for entity in self.entities:
             entity.collider.sync_to_transform(entity.transform)
 
     @staticmethod
     def get_subtypes(entities: list[Entity]) -> tuple[list[Ship], list[Cannonball]]:
-        ships, cannonballs = [], []
+        ships, cannonballs, islands = [], [], []
         for entity in entities:
             if isinstance(entity, Ship):
                 ships.append(entity)
-            if isinstance(entity, Cannonball):
+            elif isinstance(entity, Cannonball):
                 cannonballs.append(entity)
+            elif isinstance(entity, Island):
+                islands.append(entity)
 
-        return ships, cannonballs
+        return ships, cannonballs, islands
 
 @dataclass
 class Entity:
@@ -300,3 +306,7 @@ class Cannonball(Entity):
         self.transform.position += self.velocity * dt
         if self.world.time >= self.despawn_time:
             self.world.remove(self)
+
+class Island(Entity):
+    def __init__(self, world: World, transform: Transform):
+        super().__init__(world=world, collider=Circle(radius=20, is_static=True), transform=transform)

@@ -3,7 +3,7 @@ import pygame
 from pirate_rl.controls import KeyboardController
 from pirate_rl.geometry import Transform, Vector2
 from pirate_rl.rendering import Camera, Renderer
-from pirate_rl.simulation import BRIG_CONFIG, World, spawn_ship
+from pirate_rl.simulation import BRIG_CONFIG, Island, World, spawn_ship
 
 
 def main() -> None:
@@ -16,6 +16,7 @@ def main() -> None:
     ship = spawn_ship(world, BRIG_CONFIG, Transform(position=Vector2(20, 15), angle=0))
     spawn_ship(world, BRIG_CONFIG, Transform(position=Vector2(40, 30), angle=-3.14/2))
     spawn_ship(world, BRIG_CONFIG, Transform())
+    world.spawn(Island(world, Transform(position=Vector2(-20, -15), angle=0)))
 
     clock = pygame.time.Clock()
     running = True
