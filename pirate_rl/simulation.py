@@ -45,8 +45,8 @@ BRIG_CONFIG = ShipConfig(
     ),
 )
 
-def spawn_ship(world: World, config: ShipConfig) -> Ship:
-    ship = Ship(world, config)
+def spawn_ship(world: World, config: ShipConfig, transform: Transform) -> Ship:
+    ship = Ship(world=world, ship_config=config, transform=transform)
     cannon_group_l = CannonGroup()
     cannon_group_r = CannonGroup()
 
@@ -148,12 +148,16 @@ class ShipControls:
     fire_left: bool = False
     fire_right: bool = False
 
+    def __post_init__(self):
+        self.throttle = min(1, max(-1, self.throttle))
+        self.steering = min(1, max(-1, self.steering))
+
 class Ship(Entity):
-    def __init__(self, world: World, ship_config: ShipConfig):
+    def __init__(self, world: World, ship_config: ShipConfig, transform: Transform):
         super().__init__(world=world, collider=Capsule(
             radius=ship_config.width / 2,
             half_length=(ship_config.length - ship_config.width) / 2,
-        ))
+        ), transform=transform)
         self.ship_controls = ShipControls()
         self.ship_config = ship_config
         self.velocity = Velocity()
