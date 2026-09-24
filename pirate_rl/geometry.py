@@ -68,6 +68,12 @@ class Transform:
             angle=self.angle + local.angle,
         )
 
+    def inverse_transform(self, local: Transform) -> Transform:
+        return Transform(
+            position=self.inverse_transform_point(local.position),
+            angle=local.angle - self.angle,
+        )
+
 @dataclass
 class Velocity:
     linear: Vector2 = field(default_factory=Vector2)

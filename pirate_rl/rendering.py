@@ -1,7 +1,47 @@
 import pygame
 
-from .simulation import Cannonball, Ship, Vector2, World
+from .geometry import Transform
+from .simulation import Cannonball, Entity, Ship, Vector2, World
 
+
+class Camera:
+    def __init__(self):
+        self.transform = Transform()
+        self.scale = 1.0
+
+    def world_to_screen(self, transform: Transform) -> Transform:
+        screen_width, screen_height = pygame.display.get_surface().get_size()
+        center_offset = Vector2(screen_width, screen_height) / 2
+
+        screen_transform = self.transform.inverse_transform(transform)
+        screen_transform.position = screen_transform.position * self.scale + center_offset
+
+        return screen_transform
+
+    def screen_to_world(self, screen_point: Vector2) -> Vector2:
+        screen_width, screen_height = pygame.display.get_surface().get_size()
+        center_offset = Vector2(screen_width, screen_height) / 2
+
+        world_point = self.transform.transform_point((screen_point - center_offset) / self.scale)
+
+        return world_point
+
+    def frame_entities(self, entities: list[Entity], margin: float = 0.0) -> None:
+        min_x = min(e.transform.position.x for e in entities)
+        max_x = max(e.transform.position.x for e in entities)
+        min_y = min(e.transform.position.y for e in entities)
+        max_y = max(e.transform.position.y for e in entities)
+
+        screen_width, screen_height = pygame.display.get_surface().get_size()
+
+        self.transform.position = Vector2(
+            x=(min_x + max_x) / 2,
+            y=(min_y + max_y) / 2,
+        )
+        self.scale = min(
+            screen_width / (max_x - min_x + margin * 2),
+            screen_height / (max_y - min_y + margin * 2),
+        )
 
 class Renderer:
     def __init__(self):
@@ -10,30 +50,26 @@ class Renderer:
         self.window = pygame.display.set_mode((400, 300))
         pygame.display.set_caption('Pirate RL')
 
-    def render(self, world: World) -> None:
+    def render(self, world: World, camera: Camera) -> None:
         self.window.fill((50, 130, 240))
 
         for entity in world.entities:
             if type(entity) is Ship:
-                self.draw_ship(entity)
+                self.draw_ship(entity, camera)
             elif type(entity) is Cannonball:
-                self.draw_cannonball(entity)
+                self.draw_cannonball(entity, camera)
 
         pygame.display.update()
 
-    def draw_ship(self, ship: Ship):
-        line_length = ship.ship_config.length - ship.ship_config.width
-        line_width = int(ship.ship_config.width)
+    def draw_ship(self, ship: Ship, camera: Camera) -> None:
+        transform = camera.world_to_screen(ship.transform)
 
-        base = ship.transform.position
-        offset = Vector2(line_length / 2, 0.0).rotated(ship.transform.angle)
-        side_offset = Vector2(0.0, line_width / 2).rotated(ship.transform.angle)
+        line_length = (ship.ship_config.length - ship.ship_config.width) * camera.scale
+        line_width = int(ship.ship_config.width * camera.scale)
 
-        # these are temporary for debugging
-        base *= 5
-        offset *= 5
-        side_offset *= 5
-        line_width *= 5
+        base = transform.position
+        offset = Vector2(line_length / 2, 0.0).rotated(transform.angle)
+        side_offset = Vector2(0.0, line_width / 2).rotated(transform.angle)
 
         point_1 = base + offset
         point_2 = base - offset
@@ -67,28 +103,14 @@ class Renderer:
             (point_1.x, point_1.y),
             line_width/4,
         )
-        pygame.draw.circle(
-            self.window,
-            (200, 50, 50),
-            (ship.collider.world_point_a.x*5, ship.collider.world_point_a.y*5),
-            ship.collider.radius*5,
-        )
-        pygame.draw.circle(
-            self.window,
-            (200, 50, 50),
-            (ship.collider.world_point_b.x*5, ship.collider.world_point_b.y*5),
-            ship.collider.radius*5,
-        )
 
-    def draw_cannonball(self, cannonball: Cannonball):
-        point = cannonball.transform.position
-
-        # this is temporary for debugging
-        point *= 5
+    def draw_cannonball(self, cannonball: Cannonball, camera: Camera) -> None:
+        point = camera.world_to_screen(cannonball.transform).position
+        radius = 0.75 * camera.scale
 
         pygame.draw.circle(
             self.window,
             (50, 50, 50),
             (point.x, point.y),
-            3,
+            radius,
         )

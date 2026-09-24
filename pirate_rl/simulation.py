@@ -288,7 +288,7 @@ class Cannonball(Entity):
             lifetime: float,
             origin: Entity,
     ):
-        super().__init__(world=origin.world, collider=Circle(radius=1.5), transform=transform)
+        super().__init__(world=origin.world, collider=Circle(radius=0.75), transform=transform)
         self.velocity = (
             origin.velocity.linear
             + Vector2(speed, 0.0).rotated(transform.angle)
