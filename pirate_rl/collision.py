@@ -109,9 +109,20 @@ class CollisionSystem:
     @staticmethod
     def capsule_capsule(capsule_a: Capsule, capsule_b: Capsule) -> bool:
         # Note: Since ships move slowly, endpoint-to-capsule detection is typically enough.
-        return (
-               CollisionSystem.circle_capsule(capsule_a.a_as_circle(), capsule_b)
-            or CollisionSystem.circle_capsule(capsule_a.b_as_circle(), capsule_b)
-            or CollisionSystem.circle_capsule(capsule_b.a_as_circle(), capsule_a)
-            or CollisionSystem.circle_capsule(capsule_b.b_as_circle(), capsule_a)
-        )
+        circle = capsule_a.a_as_circle()
+        if CollisionSystem.circle_capsule(circle, capsule_b):
+            capsule_a.world_point_a = circle.world_point
+            return True
+        circle = capsule_a.b_as_circle()
+        if CollisionSystem.circle_capsule(circle, capsule_b):
+            capsule_a.world_point_b = circle.world_point
+            return True
+        circle = capsule_b.a_as_circle()
+        if CollisionSystem.circle_capsule(circle, capsule_a):
+            capsule_b.world_point_a = circle.world_point
+            return True
+        circle = capsule_b.b_as_circle()
+        if CollisionSystem.circle_capsule(circle, capsule_a):
+            capsule_b.world_point_b = circle.world_point
+            return True
+        return False
