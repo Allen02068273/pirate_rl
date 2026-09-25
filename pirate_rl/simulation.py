@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from itertools import combinations
 
-from .collision import Capsule, Circle, CollisionSystem
+from .collision import Capsule, Circle, CollisionSystem, RigidBody
 from .events import EventQueue
 from .geometry import Transform, Vector2, Velocity
 
@@ -23,6 +23,7 @@ class ShipConfig:
     angular_drag_rate: float
     cannon_group_l: tuple[Transform, ...]
     cannon_group_r: tuple[Transform, ...]
+
 
 BRIG_CONFIG = ShipConfig(
     length=10.0,
@@ -45,6 +46,7 @@ BRIG_CONFIG = ShipConfig(
     ),
 )
 
+
 def spawn_ship(world: World, config: ShipConfig, transform: Transform) -> Ship:
     ship = Ship(world=world, ship_config=config, transform=transform)
     cannon_group_l = CannonGroup()
@@ -60,6 +62,7 @@ def spawn_ship(world: World, config: ShipConfig, transform: Transform) -> Ship:
 
     return ship
 
+
 class World:
     def __init__(self):
         self.time = 0.0
@@ -69,7 +72,8 @@ class World:
         self.events = EventQueue()
 
     def spawn(self, entity: Entity) -> None:
-        self.to_spawn.append(entity)
+        if isinstance(entity, Entity):
+            self.to_spawn.append(entity)
 
     def remove(self, entity: Entity) -> None:
         self.to_remove.append(entity)
@@ -80,7 +84,7 @@ class World:
     def step(self, dt: float) -> None:
         if dt <= 0:
             raise ValueError("dt must be positive")
-        
+
         self.time += dt
 
         for entity in self.entities:
@@ -91,10 +95,7 @@ class World:
         self.events.pop_ready(self.time)
 
         if self.to_remove:
-            self.entities = [
-                e for e in self.entities
-                if e not in self.to_remove
-            ]
+            self.entities = [e for e in self.entities if e not in self.to_remove]
             self.to_remove.clear()
 
         if self.to_spawn:
@@ -108,26 +109,27 @@ class World:
         ships, cannonballs, islands = World.get_subtypes(self.entities)
 
         for ship_a, ship_b in combinations(ships, 2):
-            CollisionSystem.resolve_capsule_capsule(ship_a.collider, ship_b.collider)
+            CollisionSystem.resolve_collision(ship_a.collider, ship_b.collider)
 
         for ship in ships:
             for cannonball in cannonballs:
-                if (
-                    not cannonball.origin is ship
-                    and CollisionSystem.resolve_circle_capsule(cannonball.collider, ship.collider)
+                if not cannonball.origin is ship and CollisionSystem.resolve_collision(
+                    cannonball.collider, ship.collider
                 ):
                     # self.remove(cannonball)
                     pass
 
         for ship in ships:
             for island in islands:
-                CollisionSystem.resolve_circle_capsule(island.collider, ship.collider)
-            
+                CollisionSystem.resolve_collision(island.collider, ship.collider)
+
         for entity in self.entities:
             entity.collider.sync_to_transform(entity.transform, entity.velocity, dt)
 
     @staticmethod
-    def get_subtypes(entities: list[Entity]) -> tuple[list[Ship], list[Cannonball]]:
+    def get_subtypes(
+        entities: Iterable[Entity],
+    ) -> tuple[list[Ship], list[Cannonball], list[Island]]:
         ships, cannonballs, islands = [], [], []
         for entity in entities:
             if isinstance(entity, Ship):
@@ -139,14 +141,17 @@ class World:
 
         return ships, cannonballs, islands
 
+
 @dataclass
 class Entity:
     world: World
-    collider: Circle | Capsule
+    collider: RigidBody
     transform: Transform = field(default_factory=Transform)
+    velocity: Velocity = field(default_factory=Velocity)
 
     def step(self, dt: float) -> None:
         pass
+
 
 @dataclass
 class ShipControls:
@@ -159,15 +164,19 @@ class ShipControls:
         self.throttle = min(1, max(-1, self.throttle))
         self.steering = min(1, max(-1, self.steering))
 
+
 class Ship(Entity):
     def __init__(self, world: World, ship_config: ShipConfig, transform: Transform):
-        super().__init__(world=world, collider=Capsule(
-            radius=ship_config.width / 2,
-            half_length=(ship_config.length - ship_config.width) / 2,
-        ), transform=transform)
+        super().__init__(
+            world=world,
+            collider=Capsule(
+                radius=ship_config.width / 2,
+                half_length=(ship_config.length - ship_config.width) / 2,
+            ),
+            transform=transform,
+        )
         self.ship_controls = ShipControls()
         self.ship_config = ship_config
-        self.velocity = Velocity()
         self.cannons: list[CannonGroup] = []
 
     def set_controls(self, controls: ShipControls) -> None:
@@ -179,7 +188,10 @@ class Ship(Entity):
     def apply_controls(self, dt: float) -> None:
         forward = Vector2(1.0, 0.0).rotated(self.transform.angle)
         self.velocity.linear += (
-            forward * self.ship_controls.throttle * self.ship_config.linear_acceleration * dt
+            forward
+            * self.ship_controls.throttle
+            * self.ship_config.linear_acceleration
+            * dt
         )
         self.velocity.angular += (
             self.ship_controls.steering * self.ship_config.angular_acceleration * dt
@@ -204,9 +216,11 @@ class Ship(Entity):
         self.transform.position += self.velocity.linear * dt
         self.transform.angle += self.velocity.angular * dt
 
+
 class FireMode(Enum):
     VOLLEY = auto()
     FREE_FIRE = auto()
+
 
 class CannonGroup:
     def __init__(self):
@@ -244,6 +258,7 @@ class CannonGroup:
         elif self.mode is FireMode.FREE_FIRE:
             for cannon in self.cannons:
                 cannon.schedule_fire(0.1)
+
 
 class Cannon:
     def __init__(self, local_transform: Transform, ship: Ship):
@@ -283,19 +298,22 @@ class Cannon:
             origin=self.ship,
         )
         self.ship.world.spawn(cannonball)
-        
+
         self.reload_complete_time = self.ship.world.time + self.reload_time
         self.fire_scheduled = False
 
+
 class Cannonball(Entity):
     def __init__(
-            self,
-            transform: Transform,
-            speed: float,
-            lifetime: float,
-            origin: Entity,
+        self,
+        transform: Transform,
+        speed: float,
+        lifetime: float,
+        origin: Entity,
     ):
-        super().__init__(world=origin.world, collider=Circle(radius=0.75), transform=transform)
+        super().__init__(
+            world=origin.world, collider=Circle(radius=0.75), transform=transform
+        )
         self.velocity = Velocity(
             linear=origin.velocity.linear
             + Vector2(speed, 0.0).rotated(transform.angle),
@@ -309,7 +327,9 @@ class Cannonball(Entity):
         if self.world.time >= self.despawn_time:
             self.world.remove(self)
 
+
 class Island(Entity):
     def __init__(self, world: World, transform: Transform):
-        super().__init__(world=world, collider=Circle(radius=20, is_static=True), transform=transform)
-        self.velocity = None
+        super().__init__(
+            world=world, collider=Circle(radius=20, is_static=True), transform=transform
+        )

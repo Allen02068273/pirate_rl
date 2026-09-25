@@ -3,7 +3,7 @@ import pygame
 from pirate_rl.controls import KeyboardController
 from pirate_rl.geometry import Transform, Vector2
 from pirate_rl.rendering import Camera, Renderer
-from pirate_rl.simulation import BRIG_CONFIG, Island, World, spawn_ship
+from pirate_rl.simulation import BRIG_CONFIG, Island, Ship, World, spawn_ship
 
 
 def main() -> None:
@@ -14,7 +14,7 @@ def main() -> None:
 
     camera.scale = 5.0
     ship = spawn_ship(world, BRIG_CONFIG, Transform(position=Vector2(20, 15), angle=0))
-    spawn_ship(world, BRIG_CONFIG, Transform(position=Vector2(40, 30), angle=-3.14/2))
+    spawn_ship(world, BRIG_CONFIG, Transform(position=Vector2(40, 30), angle=-3.14 / 2))
     spawn_ship(world, BRIG_CONFIG, Transform())
     world.spawn(Island(world, Transform(position=Vector2(-20, -15), angle=0)))
 
@@ -27,8 +27,9 @@ def main() -> None:
                 running = False
 
         ship.set_controls(controller.get_controls(None))
-        world.step(1/60)
-        camera.frame_entities(world.entities, margin=10)
+        world.step(1 / 60)
+        ships = [ship for ship in world.entities if isinstance(ship, Ship)]
+        camera.frame_entities(ships, margin=10)
         # camera.transform.position = ship.transform.position
         # camera.transform.angle = ship.transform.angle + 3.14/2
         renderer.render(world, camera)
@@ -37,5 +38,6 @@ def main() -> None:
 
     pygame.quit()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

@@ -36,10 +36,7 @@ class Vector2:
     def magnitude_squared(self) -> float:
         return self.x * self.x + self.y * self.y
 
-    def magnitude(self) -> float:
-        return sqrt(self.magnitude_squared())
-
-    def norm(self) -> float:
+    def norm(self) -> Vector2:
         return self / sqrt(self.magnitude_squared())
 
     def angle(self) -> float:
@@ -53,6 +50,7 @@ class Vector2:
             cos_a * self.x - sin_a * self.y,
             sin_a * self.x + cos_a * self.y,
         )
+
 
 @dataclass
 class Transform:
@@ -76,6 +74,7 @@ class Transform:
             position=self.inverse_transform_point(local.position),
             angle=local.angle - self.angle,
         )
+
 
 @dataclass
 class Velocity:

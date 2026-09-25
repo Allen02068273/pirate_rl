@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 import pygame
 
 from .geometry import Transform
@@ -14,7 +16,9 @@ class Camera:
         center_offset = Vector2(screen_width, screen_height) / 2
 
         screen_transform = self.transform.inverse_transform(transform)
-        screen_transform.position = screen_transform.position * self.scale + center_offset
+        screen_transform.position = (
+            screen_transform.position * self.scale + center_offset
+        )
 
         return screen_transform
 
@@ -22,11 +26,13 @@ class Camera:
         screen_width, screen_height = pygame.display.get_surface().get_size()
         center_offset = Vector2(screen_width, screen_height) / 2
 
-        world_point = self.transform.transform_point((screen_point - center_offset) / self.scale)
+        world_point = self.transform.transform_point(
+            (screen_point - center_offset) / self.scale
+        )
 
         return world_point
 
-    def frame_entities(self, entities: list[Entity], margin: float = 0.0) -> None:
+    def frame_entities(self, entities: Iterable[Entity], margin: float = 0.0) -> None:
         min_x = min(e.transform.position.x for e in entities)
         max_x = max(e.transform.position.x for e in entities)
         min_y = min(e.transform.position.y for e in entities)
@@ -43,12 +49,13 @@ class Camera:
             screen_height / (max_y - min_y + margin * 2),
         )
 
+
 class Renderer:
     def __init__(self):
         pygame.init()
 
         self.window = pygame.display.set_mode((400, 300))
-        pygame.display.set_caption('Pirate RL')
+        pygame.display.set_caption("Pirate RL")
 
     def render(self, world: World, camera: Camera) -> None:
         self.window.fill((50, 130, 240))
@@ -91,19 +98,19 @@ class Renderer:
             self.window,
             color,
             (point_1.x, point_1.y),
-            line_width/2,
+            line_width / 2,
         )
         pygame.draw.circle(
             self.window,
             color,
             (point_2.x, point_2.y),
-            line_width/2,
+            line_width / 2,
         )
         pygame.draw.circle(
             self.window,
             (150, 150, 150),
             (point_1.x, point_1.y),
-            line_width/4,
+            line_width / 4,
         )
 
     def draw_cannonball(self, cannonball: Cannonball, camera: Camera) -> None:

@@ -6,8 +6,8 @@ from .simulation import ShipControls
 
 
 class ShipController(Protocol):
-    def get_controls(self, observation) -> ShipControls:
-        ...
+    def get_controls(self, observation) -> ShipControls: ...
+
 
 class KeyboardController:
     def get_controls(self, observation) -> ShipControls:
@@ -19,6 +19,7 @@ class KeyboardController:
             fire_left=keys[pygame.K_LSHIFT],
             fire_right=keys[pygame.K_SPACE],
         )
+
 
 class RLController:
     def __init__(self, policy):

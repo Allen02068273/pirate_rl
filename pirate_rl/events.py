@@ -18,6 +18,7 @@ class EventQueue:
             event = heapq.heappop(self.events)
             event.callback()
 
+
 @dataclass(order=True)
 class ScheduledEvent:
     time: float
