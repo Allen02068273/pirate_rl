@@ -6,6 +6,25 @@ from .geometry import Transform, Vector2, Velocity
 
 
 @dataclass
+class AABB:
+    min: Vector2 = field(default_factory=Vector2)
+    max: Vector2 = field(default_factory=Vector2)
+
+    def contains(self, point: Vector2):
+        return (
+            self.min.x <= point.x <= self.max.x and self.min.y <= point.y <= self.max.y
+        )
+
+    def intersects(self, other: "AABB"):
+        return not (
+            self.max.x < other.min.x
+            or self.min.x > other.max.x
+            or self.max.y < other.min.y
+            or self.min.y > other.max.y
+        )
+
+
+@dataclass
 class RigidBody(ABC):
     @abstractmethod
     def sync_from_transform(
@@ -16,6 +35,9 @@ class RigidBody(ABC):
     def sync_to_transform(
         self, transform: Transform, velocity: Velocity, dt: float
     ) -> None: ...
+
+    @abstractmethod
+    def get_aabb(self) -> AABB: ...
 
 
 @dataclass
@@ -46,6 +68,12 @@ class Circle(RigidBody):
                 raise ValueError("dt must be positive")
 
             velocity.linear = (self.world_point - self.prior_world_point) / dt
+
+    def get_aabb(self) -> AABB:
+        return AABB(
+            min=self.world_point - Vector2(self.radius, self.radius),
+            max=self.world_point + Vector2(self.radius, self.radius),
+        )
 
 
 @dataclass
@@ -116,6 +144,20 @@ class Capsule(RigidBody):
             velocity.angular = (vel_b - vel_a).dot(
                 Vector2(0.0, 1.0).rotated(transform.angle)
             ) / (2.0 * self.half_length)
+
+    def get_aabb(self) -> AABB:
+        min_point = Vector2(
+            min(self.world_point_a.x, self.world_point_b.x),
+            min(self.world_point_a.y, self.world_point_b.y),
+        )
+        max_point = Vector2(
+            max(self.world_point_a.x, self.world_point_b.x),
+            max(self.world_point_a.y, self.world_point_b.y),
+        )
+        return AABB(
+            min=min_point - Vector2(self.radius, self.radius),
+            max=max_point + Vector2(self.radius, self.radius),
+        )
 
 
 class CollisionSystem:
@@ -211,14 +253,22 @@ class CollisionSystem:
         return False
 
     @staticmethod
-    def resolve_collision(collider_a: RigidBody, collider_b: RigidBody):
-        if isinstance(collider_a, Circle):
-            if isinstance(collider_b, Circle):
-                return CollisionSystem.resolve_circle_circle(collider_a, collider_b)
-            if isinstance(collider_b, Capsule):
-                return CollisionSystem.resolve_circle_capsule(collider_a, collider_b)
-        if isinstance(collider_a, Capsule):
-            if isinstance(collider_b, Circle):
-                return CollisionSystem.resolve_circle_capsule(collider_b, collider_a)
-            if isinstance(collider_b, Capsule):
-                return CollisionSystem.resolve_capsule_capsule(collider_a, collider_b)
+    def resolve_collision(body_a: RigidBody, body_b: RigidBody) -> bool:
+        if not body_a.get_aabb().intersects(body_b.get_aabb()):
+            return False
+
+        if isinstance(body_a, Circle):
+            if isinstance(body_b, Circle):
+                return CollisionSystem.resolve_circle_circle(body_a, body_b)
+            if isinstance(body_b, Capsule):
+                return CollisionSystem.resolve_circle_capsule(body_a, body_b)
+        elif isinstance(body_a, Capsule):
+            if isinstance(body_b, Circle):
+                return CollisionSystem.resolve_circle_capsule(body_b, body_a)
+            if isinstance(body_b, Capsule):
+                return CollisionSystem.resolve_capsule_capsule(body_a, body_b)
+
+        raise TypeError(
+            f"Unsupported collision types:"
+            f"{type(body_a).__name__} and {type(body_b).__name__}"
+        )

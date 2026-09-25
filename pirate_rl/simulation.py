@@ -104,27 +104,27 @@ class World:
 
     def handle_collisions(self, dt: float) -> None:
         for entity in self.entities:
-            entity.collider.sync_from_transform(entity.transform, entity.velocity, dt)
+            entity.rigid_body.sync_from_transform(entity.transform, entity.velocity, dt)
 
         ships, cannonballs, islands = World.get_subtypes(self.entities)
 
         for ship_a, ship_b in combinations(ships, 2):
-            CollisionSystem.resolve_collision(ship_a.collider, ship_b.collider)
+            CollisionSystem.resolve_collision(ship_a.rigid_body, ship_b.rigid_body)
 
         for ship in ships:
             for cannonball in cannonballs:
                 if not cannonball.origin is ship and CollisionSystem.resolve_collision(
-                    cannonball.collider, ship.collider
+                    cannonball.rigid_body, ship.rigid_body
                 ):
                     # self.remove(cannonball)
                     pass
 
         for ship in ships:
             for island in islands:
-                CollisionSystem.resolve_collision(island.collider, ship.collider)
+                CollisionSystem.resolve_collision(island.rigid_body, ship.rigid_body)
 
         for entity in self.entities:
-            entity.collider.sync_to_transform(entity.transform, entity.velocity, dt)
+            entity.rigid_body.sync_to_transform(entity.transform, entity.velocity, dt)
 
     @staticmethod
     def get_subtypes(
@@ -145,7 +145,7 @@ class World:
 @dataclass
 class Entity:
     world: World
-    collider: RigidBody
+    rigid_body: RigidBody
     transform: Transform = field(default_factory=Transform)
     velocity: Velocity = field(default_factory=Velocity)
 
@@ -169,7 +169,7 @@ class Ship(Entity):
     def __init__(self, world: World, ship_config: ShipConfig, transform: Transform):
         super().__init__(
             world=world,
-            collider=Capsule(
+            rigid_body=Capsule(
                 radius=ship_config.width / 2,
                 half_length=(ship_config.length - ship_config.width) / 2,
             ),
@@ -312,7 +312,7 @@ class Cannonball(Entity):
         origin: Entity,
     ):
         super().__init__(
-            world=origin.world, collider=Circle(radius=0.75), transform=transform
+            world=origin.world, rigid_body=Circle(radius=0.75), transform=transform
         )
         self.velocity = Velocity(
             linear=origin.velocity.linear
@@ -331,5 +331,7 @@ class Cannonball(Entity):
 class Island(Entity):
     def __init__(self, world: World, transform: Transform):
         super().__init__(
-            world=world, collider=Circle(radius=20, is_static=True), transform=transform
+            world=world,
+            rigid_body=Circle(radius=20, is_static=True),
+            transform=transform,
         )
