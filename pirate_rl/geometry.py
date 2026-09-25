@@ -36,6 +36,9 @@ class Vector2:
     def magnitude_squared(self) -> float:
         return self.x * self.x + self.y * self.y
 
+    def magnitude(self) -> float:
+        return sqrt(self.magnitude_squared())
+
     def norm(self) -> float:
         return self / sqrt(self.magnitude_squared())
 

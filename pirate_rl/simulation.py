@@ -86,7 +86,7 @@ class World:
         for entity in self.entities:
             entity.step(dt)
 
-        self.handle_collisions()
+        self.handle_collisions(dt)
 
         self.events.pop_ready(self.time)
 
@@ -101,29 +101,30 @@ class World:
             self.entities.extend(self.to_spawn)
             self.to_spawn.clear()
 
-    def handle_collisions(self) -> None:
+    def handle_collisions(self, dt: float) -> None:
         for entity in self.entities:
-            entity.collider.sync_from_transform(entity.transform)
+            entity.collider.sync_from_transform(entity.transform, entity.velocity, dt)
 
         ships, cannonballs, islands = World.get_subtypes(self.entities)
 
         for ship_a, ship_b in combinations(ships, 2):
-            CollisionSystem.capsule_capsule(ship_a.collider, ship_b.collider)
+            CollisionSystem.resolve_capsule_capsule(ship_a.collider, ship_b.collider)
 
         for ship in ships:
             for cannonball in cannonballs:
                 if (
                     not cannonball.origin is ship
-                    and CollisionSystem.circle_capsule(cannonball.collider, ship.collider)
+                    and CollisionSystem.resolve_circle_capsule(cannonball.collider, ship.collider)
                 ):
-                    self.remove(cannonball)
+                    # self.remove(cannonball)
+                    pass
 
         for ship in ships:
             for island in islands:
-                CollisionSystem.circle_capsule(island.collider, ship.collider)
+                CollisionSystem.resolve_circle_capsule(island.collider, ship.collider)
             
         for entity in self.entities:
-            entity.collider.sync_to_transform(entity.transform)
+            entity.collider.sync_to_transform(entity.transform, entity.velocity, dt)
 
     @staticmethod
     def get_subtypes(entities: list[Entity]) -> tuple[list[Ship], list[Cannonball]]:
@@ -295,18 +296,20 @@ class Cannonball(Entity):
             origin: Entity,
     ):
         super().__init__(world=origin.world, collider=Circle(radius=0.75), transform=transform)
-        self.velocity = (
-            origin.velocity.linear
-            + Vector2(speed, 0.0).rotated(transform.angle)
+        self.velocity = Velocity(
+            linear=origin.velocity.linear
+            + Vector2(speed, 0.0).rotated(transform.angle),
+            angular=0.0,
         )
         self.origin = origin
         self.despawn_time = self.world.time + lifetime
 
     def step(self, dt: float) -> None:
-        self.transform.position += self.velocity * dt
+        self.transform.position += self.velocity.linear * dt
         if self.world.time >= self.despawn_time:
             self.world.remove(self)
 
 class Island(Entity):
     def __init__(self, world: World, transform: Transform):
         super().__init__(world=world, collider=Circle(radius=20, is_static=True), transform=transform)
+        self.velocity = None
