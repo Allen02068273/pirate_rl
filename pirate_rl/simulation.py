@@ -116,8 +116,8 @@ class World:
                 if not cannonball.origin is ship and CollisionSystem.resolve_collision(
                     cannonball.rigid_body, ship.rigid_body
                 ):
+                    ship.hull_health -= 1.0
                     # self.remove(cannonball)
-                    pass
 
         for ship in ships:
             for island in islands:
@@ -178,6 +178,7 @@ class Ship(Entity):
         self.ship_controls = ShipControls()
         self.ship_config = ship_config
         self.cannons: list[CannonGroup] = []
+        self.hull_health = ship_config.max_hull_health
 
     def set_controls(self, controls: ShipControls) -> None:
         self.ship_controls = controls
@@ -215,6 +216,9 @@ class Ship(Entity):
 
         self.transform.position += self.velocity.linear * dt
         self.transform.angle += self.velocity.angular * dt
+
+        if self.hull_health <= 0.0:
+            self.world.remove(self)
 
 
 class FireMode(Enum):

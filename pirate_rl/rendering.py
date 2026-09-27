@@ -84,6 +84,7 @@ class Renderer:
         point_2 = base - offset
         color = (100, 70, 45)
 
+        # draw ship body capsule
         pygame.draw.polygon(
             self.window,
             color,
@@ -106,11 +107,32 @@ class Renderer:
             (point_2.x, point_2.y),
             line_width / 2,
         )
+        # draw debug point to know which way is forward
         pygame.draw.circle(
             self.window,
             (150, 150, 150),
             (point_1.x, point_1.y),
             line_width / 4,
+        )
+        # draw health bar
+        pygame.draw.line(
+            self.window,
+            (40, 40, 100),
+            (base.x - 20, base.y - 6 * camera.scale),
+            (base.x + 20, base.y - 6 * camera.scale),
+            5,
+        )
+        pygame.draw.line(
+            self.window,
+            (80, 80, 200),
+            (base.x - 20, base.y - 6 * camera.scale),
+            (
+                base.x
+                - 20
+                + 40 * (ship.hull_health / ship.ship_config.max_hull_health),
+                base.y - 6 * camera.scale,
+            ),
+            5,
         )
 
     def draw_cannonball(self, cannonball: Cannonball, camera: Camera) -> None:
