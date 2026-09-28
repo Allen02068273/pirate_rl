@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from math import inf, sqrt
+from math import inf, pi, sqrt
 
 from .collision import Capsule, Circle
 from .geometry import Transform, Vector2, Velocity
@@ -25,7 +25,39 @@ def get_observation(world: World, ship: Ship) -> Observation:
     return observation
 
 
-def raycast(
+@dataclass
+class Sensor:
+    local_transform: Transform
+    entity: Entity
+
+    def observe(self, world: World) -> list[float]:
+        return []
+
+
+class Lidar(Sensor):
+    def __init__(self, entity: Entity):
+        super().__init__(local_transform=Transform(), entity=entity)
+        self.max_range: float = 100.0
+        self.rays: int = 32
+
+    def observe(self, world: World) -> list[float]:
+        range_values = []
+        entities = [e for e in world.entities if e is not self.entity]
+        ray_transform = self.entity.transform.transform(self.local_transform)
+
+        for _ in range(self.rays):
+            distance, _entity = raycast_entities(
+                ray_transform, self.max_range, entities
+            )
+            t = distance / self.max_range
+            range_values.append(t)
+
+            ray_transform.angle += 2.0 * pi / self.rays
+
+        return range_values
+
+
+def raycast_entities(
     ray_transform: Transform, max_range: float, entities: Iterable[Entity]
 ) -> tuple[float, Entity | None]:
     nearest_distance = max_range
@@ -40,9 +72,6 @@ def raycast(
             distance = raycast_circle(
                 ray_origin, ray_unit_vector, circle_position, circle_radius
             )
-            if distance < nearest_distance:
-                nearest_distance = distance
-                nearest_entity = entity
 
         elif isinstance(entity.rigid_body, Capsule):
             capsule = entity.rigid_body
@@ -82,9 +111,15 @@ def raycast(
                     capsule_radius,
                 ),
             )
-            if distance < nearest_distance:
-                nearest_distance = distance
-                nearest_entity = entity
+        else:
+            raise TypeError(
+                f"Unsuportted raycast rigid body type: "
+                f"{type(entity.rigid_body).__name__}"
+            )
+
+        if distance < nearest_distance:
+            nearest_distance = distance
+            nearest_entity = entity
 
     return (nearest_distance, nearest_entity)
 
