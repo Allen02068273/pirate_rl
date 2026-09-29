@@ -113,7 +113,7 @@ def raycast_entities(
             )
         else:
             raise TypeError(
-                f"Unsuportted raycast rigid body type: "
+                f"Unsupported raycast rigid body type: "
                 f"{type(entity.rigid_body).__name__}"
             )
 

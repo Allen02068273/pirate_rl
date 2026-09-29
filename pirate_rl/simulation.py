@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum, IntFlag, auto
 from itertools import combinations
 
 from .collision import Capsule, Circle, CollisionSystem, RigidBody
@@ -28,7 +28,7 @@ class ShipConfig:
 BRIG_CONFIG = ShipConfig(
     length=10.0,
     width=5.0,
-    max_hull_health=100,
+    max_hull_health=30,
     linear_acceleration=4.0,
     angular_acceleration=1.0,
     forward_drag_rate=0.4,
@@ -81,6 +81,28 @@ class World:
     def schedule(self, time, callback) -> None:
         self.events.schedule(time, callback)
 
+    def handle_collisions(self, dt: float) -> None:
+        for entity in self.entities:
+            entity.rigid_body.sync_from_transform(entity.transform, entity.velocity, dt)
+
+        for a, b in combinations(self.entities, 2):
+            if (
+                (
+                    a.collision_group & b.collision_mask
+                    or a.collision_group & b.collision_mask
+                )
+                and not (
+                    (isinstance(a, Cannonball) and a.origin is b)
+                    or (isinstance(b, Cannonball) and b.origin is a)
+                )
+                and CollisionSystem.resolve_collision(a.rigid_body, b.rigid_body)
+            ):
+                a.on_collision(b)
+                b.on_collision(a)
+
+        for entity in self.entities:
+            entity.rigid_body.sync_to_transform(entity.transform, entity.velocity, dt)
+
     def step(self, dt: float) -> None:
         if dt <= 0:
             raise ValueError("dt must be positive")
@@ -102,54 +124,26 @@ class World:
             self.entities.extend(self.to_spawn)
             self.to_spawn.clear()
 
-    def handle_collisions(self, dt: float) -> None:
-        for entity in self.entities:
-            entity.rigid_body.sync_from_transform(entity.transform, entity.velocity, dt)
 
-        ships, cannonballs, islands = World.get_subtypes(self.entities)
-
-        for ship_a, ship_b in combinations(ships, 2):
-            CollisionSystem.resolve_collision(ship_a.rigid_body, ship_b.rigid_body)
-
-        for ship in ships:
-            for cannonball in cannonballs:
-                if not cannonball.origin is ship and CollisionSystem.resolve_collision(
-                    cannonball.rigid_body, ship.rigid_body
-                ):
-                    ship.hull_health -= 1.0
-                    # self.remove(cannonball)
-
-        for ship in ships:
-            for island in islands:
-                CollisionSystem.resolve_collision(island.rigid_body, ship.rigid_body)
-
-        for entity in self.entities:
-            entity.rigid_body.sync_to_transform(entity.transform, entity.velocity, dt)
-
-    @staticmethod
-    def get_subtypes(
-        entities: Iterable[Entity],
-    ) -> tuple[list[Ship], list[Cannonball], list[Island]]:
-        ships, cannonballs, islands = [], [], []
-        for entity in entities:
-            if isinstance(entity, Ship):
-                ships.append(entity)
-            elif isinstance(entity, Cannonball):
-                cannonballs.append(entity)
-            elif isinstance(entity, Island):
-                islands.append(entity)
-
-        return ships, cannonballs, islands
+class CollisionGroup(IntFlag):
+    SHIP = 1 << 0
+    PROJECTILE = 1 << 1
+    TERRAIN = 1 << 2
 
 
 @dataclass
 class Entity:
     world: World
     rigid_body: RigidBody
+    collision_group: CollisionGroup
+    collision_mask: CollisionGroup
     transform: Transform = field(default_factory=Transform)
     velocity: Velocity = field(default_factory=Velocity)
 
     def step(self, dt: float) -> None:
+        pass
+
+    def on_collision(self, other: Entity) -> None:
         pass
 
 
@@ -173,6 +167,10 @@ class Ship(Entity):
                 radius=ship_config.width / 2,
                 half_length=(ship_config.length - ship_config.width) / 2,
             ),
+            collision_group=CollisionGroup.SHIP,
+            collision_mask=CollisionGroup.SHIP
+            | CollisionGroup.PROJECTILE
+            | CollisionGroup.TERRAIN,
             transform=transform,
         )
         self.ship_controls = ShipControls()
@@ -219,6 +217,10 @@ class Ship(Entity):
 
         if self.hull_health <= 0.0:
             self.world.remove(self)
+
+    def on_collision(self, other: Entity) -> None:
+        if isinstance(other, Cannonball):
+            self.hull_health -= 1.0
 
 
 class FireMode(Enum):
@@ -316,7 +318,11 @@ class Cannonball(Entity):
         origin: Entity,
     ):
         super().__init__(
-            world=origin.world, rigid_body=Circle(radius=0.75), transform=transform
+            world=origin.world,
+            rigid_body=Circle(radius=0.75),
+            collision_group=CollisionGroup.PROJECTILE,
+            collision_mask=CollisionGroup.SHIP,
+            transform=transform,
         )
         self.velocity = Velocity(
             linear=origin.velocity.linear
@@ -331,11 +337,16 @@ class Cannonball(Entity):
         if self.world.time >= self.despawn_time:
             self.world.remove(self)
 
+    def on_collision(self, other: Entity) -> None:
+        self.world.remove(self)
+
 
 class Island(Entity):
     def __init__(self, world: World, transform: Transform):
         super().__init__(
             world=world,
             rigid_body=Circle(radius=20, is_static=True),
+            collision_group=CollisionGroup.TERRAIN,
+            collision_mask=CollisionGroup.SHIP,
             transform=transform,
         )

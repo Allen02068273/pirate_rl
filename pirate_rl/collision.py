@@ -235,22 +235,23 @@ class CollisionSystem:
     def resolve_capsule_capsule(capsule_a: Capsule, capsule_b: Capsule) -> bool:
         # Note: Since ships move slowly, endpoint-to-capsule detection is typically enough.
         circle = capsule_a.a_as_circle()
+        collided = False
         if CollisionSystem.resolve_circle_capsule(circle, capsule_b):
             capsule_a.world_point_a = circle.world_point
-            return True
+            collided = True
         circle = capsule_a.b_as_circle()
         if CollisionSystem.resolve_circle_capsule(circle, capsule_b):
             capsule_a.world_point_b = circle.world_point
-            return True
+            collided = True
         circle = capsule_b.a_as_circle()
         if CollisionSystem.resolve_circle_capsule(circle, capsule_a):
             capsule_b.world_point_a = circle.world_point
-            return True
+            collided = True
         circle = capsule_b.b_as_circle()
         if CollisionSystem.resolve_circle_capsule(circle, capsule_a):
             capsule_b.world_point_b = circle.world_point
-            return True
-        return False
+            collided = True
+        return collided
 
     @staticmethod
     def resolve_collision(body_a: RigidBody, body_b: RigidBody) -> bool:
@@ -269,6 +270,6 @@ class CollisionSystem:
                 return CollisionSystem.resolve_capsule_capsule(body_a, body_b)
 
         raise TypeError(
-            f"Unsupported collision types:"
+            f"Unsupported collision types: "
             f"{type(body_a).__name__} and {type(body_b).__name__}"
         )
