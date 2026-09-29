@@ -3,7 +3,15 @@ import pygame
 from pirate_rl.controls import KeyboardController
 from pirate_rl.geometry import Transform, Vector2
 from pirate_rl.rendering import Camera, Renderer
-from pirate_rl.simulation import BRIG_CONFIG, Island, Ship, World, spawn_ship
+from pirate_rl.sensors import Lidar
+from pirate_rl.simulation import (
+    BRIG_CONFIG,
+    Island,
+    Ship,
+    ShipControls,
+    World,
+    spawn_ship,
+)
 
 
 def main() -> None:
@@ -14,9 +22,14 @@ def main() -> None:
 
     camera.scale = 5.0
     ship = spawn_ship(world, BRIG_CONFIG, Transform(position=Vector2(20, 15), angle=0))
-    spawn_ship(world, BRIG_CONFIG, Transform(position=Vector2(40, 30), angle=-3.14 / 2))
+    other_ship = spawn_ship(
+        world, BRIG_CONFIG, Transform(position=Vector2(40, 30), angle=-3.14 / 2)
+    )
     spawn_ship(world, BRIG_CONFIG, Transform())
     world.spawn(Island(world, Transform(position=Vector2(-20, -15), angle=0)))
+
+    other_ship.set_controls(ShipControls(throttle=1.0, steering=1.0, fire_left=True))
+    lidar = Lidar(ship)
 
     clock = pygame.time.Clock()
     running = True
@@ -33,6 +46,7 @@ def main() -> None:
         # camera.transform.position = ship.transform.position
         # camera.transform.angle = ship.transform.angle + 3.14/2
         renderer.render(world, camera)
+        renderer.draw_lidar_debug(lidar, camera)
 
         clock.tick(60)
 

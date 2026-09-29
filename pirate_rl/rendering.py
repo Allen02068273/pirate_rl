@@ -1,8 +1,10 @@
 from collections.abc import Iterable
+from math import pi
 
 import pygame
 
 from .geometry import Transform
+from .sensors import Lidar
 from .simulation import Cannonball, Entity, Island, Ship, Vector2, World
 
 
@@ -156,3 +158,24 @@ class Renderer:
             (point.x, point.y),
             radius,
         )
+
+    def draw_lidar_debug(self, lidar: Lidar, camera: Camera) -> None:
+        lidar_transform = lidar.entity.transform.transform(lidar.local_transform)
+        transform = camera.world_to_screen(lidar_transform)
+        base = transform.position
+
+        data = lidar.observe(lidar.entity.world)
+
+        for i in range(lidar.rays):
+            end = base + camera.scale * Vector2(
+                x=data[i] * lidar.max_range, y=0.0
+            ).rotated(transform.angle + i * 2.0 * pi / lidar.rays)
+            pygame.draw.line(
+                self.window,
+                (170, 50, 50),
+                (base.x, base.y),
+                (end.x, end.y),
+                1,
+            )
+
+        pygame.display.update()
